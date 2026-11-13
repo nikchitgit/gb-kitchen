@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function owner() {
+      return signedIn() && request.auth.token.email == 'nikchit@gmail.com';
+    }
+    function activeUser() {
+      return owner() || (signedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == true);
+    }
+    match /users/{uid} {
+      allow read: if owner() || (signedIn() && request.auth.uid == uid);
+      allow write: if owner();
+    }
+    match /{collection}/{docId} {
+      allow read, write: if activeUser() &&
+        collection in ['products','orders','sales','exhibitions','customers','suppliers','expenses'];
+    }
+  }
+}
